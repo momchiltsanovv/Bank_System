@@ -1,0 +1,108 @@
+.cp-tab-content { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Page-level decorative background blobs ── */
+.cp-page-wrap {
+  position: relative;
+}
+.cp-page-wrap::before {
+  content: '';
+  position: fixed;
+  top: 64px; right: 0;
+  width: 520px; height: 420px;
+  background: radial-gradient(ellipse at top right,
+    rgba(59,130,246,0.09) 0%,
+    rgba(99,102,241,0.06) 40%,
+    transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: blobDrift 14s ease-in-out infinite alternate;
+}
+.cp-page-wrap::after {
+  content: '';
+  position: fixed;
+  bottom: 0; left: 264px;
+  width: 400px; height: 340px;
+  background: radial-gradient(ellipse at bottom left,
+    rgba(16,185,129,0.06) 0%,
+    transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+  animation: blobDrift2 18s ease-in-out infinite alternate;
+}
+@keyframes blobDrift  { from { transform: translate(0,0) scale(1); } to { transform: translate(-30px, 20px) scale(1.08); } }
+@keyframes blobDrift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(20px,-25px) scale(1.06); } }
+
+/* ── Register form card ── */
+.cp-form-card { margin-bottom: 0 !important; }
+
+.cp-form-header {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 24px; padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.cp-form-header-icon {
+  width: 52px; height: 52px; border-radius: var(--r);
+  background: rgba(59,130,246,0.18);
+  color: #60a5fa;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+  border: 1px solid rgba(59,130,246,0.25);
+}
+.cp-form-header-icon--corp {
+  background: rgba(16,185,129,0.18);
+  color: #34d399;
+  border: 1px solid rgba(16,185,129,0.25);
+}
+.cp-form-header-title { font-family: var(--font-h); font-size: 1.05rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+.cp-form-header-sub  { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+
+.cp-form { display: flex; flex-direction: column; }
+.cp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+.cp-field { display: flex; flex-direction: column; gap: 7px; }
+.cp-field .p-inputtext { width: 100%; }
+.cp-field-hint { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.6; font-size: 0.68rem; }
+
+.cp-form-footer {
+  display: flex; justify-content: flex-end; align-items: center;
+  margin-top: 24px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+  gap: 12px;
+}
+
+/* ── Table card header ── */
+.cp-table-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cp-table-title { font-family: var(--font-h); font-size: 1rem; font-weight: 700; color: var(--text); }
+
+/* ── Row expansion: client detail ── */
+.cp-detail {
+  display: flex; gap: 0;
+  padding: 20px 16px;
+  background: linear-gradient(to bottom, #f8faff, var(--surface-b));
+  border-top: 3px solid var(--gold);
+}
+.cp-detail-col { flex: 1; min-width: 0; padding: 0 14px; }
+.cp-detail-divider { margin: 0 !important; }
+
+/* ── Repayment plan dialog ── */
+.cp-plan-meta {
+  display: flex; align-items: center; gap: 28px;
+  padding: 14px 0 18px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.cp-plan-meta-item { display: flex; flex-direction: column; gap: 3px; }
+.cp-plan-meta-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.cp-plan-meta-val { font-family: var(--font-h); font-size: 1.4rem; font-weight: 700; color: var(--text); line-height: 1; }
+.cp-plan-meta-val--pct { color: var(--navy); }
+.cp-plan-progress-wrap { flex: 1; min-width: 160px; }
+.cp-row-paid td { background: rgba(16,185,129,0.12) !important; color: #6ee7b7 !important; }
+
+/* ── Utilities ── */
+.cp-mono  { font-family: 'Courier New', monospace; font-size: 0.82rem; letter-spacing: 0.03em; color: var(--text-mid); }
+.cp-muted { color: var(--text-muted); font-size: 0.82rem; font-weight: 600; }
