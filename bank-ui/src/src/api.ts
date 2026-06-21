@@ -10,8 +10,15 @@ import {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || `HTTP ${res.status}`);
+    const text = await res.text().catch(() => '');
+    try {
+      const json = JSON.parse(text);
+      const message = json.detail || json.title || json.message || `HTTP ${res.status}`;
+      throw new Error(message);
+    } catch (e) {
+      if (e instanceof Error && e.message !== text) throw e;
+      throw new Error(text || res.statusText || `HTTP ${res.status}`);
+    }
   }
   return res.json() as Promise<T>;
 }
