@@ -199,3 +199,12 @@
 .lp-progress-nums { font-size: 0.8rem; font-weight: 700; color: var(--text-mid); }
 .lp-mini-bar { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; width: 100%; max-width: 130px; }
 .lp-mini-fill { height: 100%; background: linear-gradient(to right, var(--navy), #3a5fa0); border-radius: 999px; transition: width 0.4s; }
+
+/* Loan type card edit */
+.lp-type-edit-btn { margin-left: auto; opacity: 0.6; }
+.lp-type-edit-btn:hover { opacity: 1; }
+.lp-type-edit-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; position: relative; z-index: 1; }
+.lp-type-edit-field { display: flex; flex-direction: column; gap: 4px; }
+.lp-type-edit-field label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+.lp-type-edit-field .p-inputnumber-input { width: 100%; font-size: 0.85rem; }
+.lp-type-edit-actions { display: flex; gap: 8px; margin-top: 4px; }

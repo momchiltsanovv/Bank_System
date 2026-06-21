@@ -9,7 +9,7 @@ import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { ProgressBar } from 'primereact/progressbar';
 import { Chip } from 'primereact/chip';
-import { getLoanTypes, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment } from '../api';
+import { getLoanTypes, updateLoanType, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment } from '../api';
 import { LoanType, Loan, RepaymentInstalment } from '../types';
 import './LoansPage.css';
 
@@ -84,7 +84,45 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
 
 // ── Loan Type Cards ───────────────────────────────────────────────────────────
 
-const LoanTypeCards: React.FC<{ types: LoanType[]; loading: boolean }> = ({ types, loading }) => {
+const LoanTypeCards: React.FC<{
+  types: LoanType[];
+  loading: boolean;
+  onUpdated: (lt: LoanType) => void;
+  toast: React.RefObject<Toast>;
+}> = ({ types, loading, onUpdated, toast }) => {
+  const [editingId, setEditingId]     = useState<number | null>(null);
+  const [editRate, setEditRate]       = useState<number | null>(null);
+  const [editMax, setEditMax]         = useState<number | null>(null);
+  const [editTerm, setEditTerm]       = useState<number | null>(null);
+  const [saving, setSaving]           = useState(false);
+
+  const startEdit = (lt: LoanType) => {
+    setEditingId(lt.id);
+    setEditRate(parseFloat((lt.annualInterestRate * 100).toFixed(4)));
+    setEditMax(lt.maxAmount);
+    setEditTerm(lt.maxTermMonths);
+  };
+
+  const cancelEdit = () => { setEditingId(null); };
+
+  const handleSave = async (lt: LoanType) => {
+    if (!editRate || !editMax || !editTerm) return;
+    setSaving(true);
+    try {
+      const updated = await updateLoanType(lt.id, {
+        annualInterestRate: editRate / 100,
+        maxAmount: editMax,
+        maxTermMonths: editTerm,
+      });
+      onUpdated(updated);
+      setEditingId(null);
+      toast.current?.show({ severity: 'success', summary: 'Updated',
+        detail: `${lt.category} loan type saved.` });
+    } catch (e: any) {
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
+    } finally { setSaving(false); }
+  };
+
   if (loading) return <ProgressBar mode="indeterminate" style={{ height: 3, marginBottom: 16 }} />;
 
   return (
@@ -96,19 +134,52 @@ const LoanTypeCards: React.FC<{ types: LoanType[]; loading: boolean }> = ({ type
               <i className={lt.category === 'CONSUMER' ? 'pi pi-credit-card' : 'pi pi-home'} />
             </div>
             <span className="lp-type-badge">{lt.category}</span>
+            {editingId !== lt.id && (
+              <Button icon="pi pi-pencil" rounded text size="small"
+                className="lp-type-edit-btn" onClick={() => startEdit(lt)} />
+            )}
           </div>
           <div className="lp-type-name">{lt.category === 'CONSUMER' ? 'Consumer Loan' : 'Mortgage Loan'}</div>
-          <div className="lp-type-rate">{(lt.annualInterestRate * 100).toFixed(2)}%<span> p.a.</span></div>
-          <div className="lp-type-stats">
-            <div className="lp-type-stat">
-              <span className="lp-type-stat-label">Max Amount</span>
-              <span className="lp-type-stat-val">BGN {lt.maxAmount.toLocaleString()}</span>
+
+          {editingId === lt.id ? (
+            <div className="lp-type-edit-form">
+              <div className="lp-type-edit-field">
+                <label>Rate (%)</label>
+                <InputNumber value={editRate} onValueChange={e => setEditRate(e.value ?? null)}
+                  minFractionDigits={2} maxFractionDigits={4} min={0.01} max={100} disabled={saving} />
+              </div>
+              <div className="lp-type-edit-field">
+                <label>Max Amount (BGN)</label>
+                <InputNumber value={editMax} onValueChange={e => setEditMax(e.value ?? null)}
+                  min={1} disabled={saving} useGrouping={false} />
+              </div>
+              <div className="lp-type-edit-field">
+                <label>Max Term (months)</label>
+                <InputNumber value={editTerm} onValueChange={e => setEditTerm(e.value ?? null)}
+                  min={1} disabled={saving} useGrouping={false} />
+              </div>
+              <div className="lp-type-edit-actions">
+                <Button label="Save" icon="pi pi-check" size="small" className="bs-btn-navy"
+                  loading={saving} onClick={() => handleSave(lt)} />
+                <Button label="Cancel" icon="pi pi-times" size="small" severity="secondary"
+                  disabled={saving} onClick={cancelEdit} />
+              </div>
             </div>
-            <div className="lp-type-stat">
-              <span className="lp-type-stat-label">Max Term</span>
-              <span className="lp-type-stat-val">{lt.maxTermMonths} mo.</span>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="lp-type-rate">{(lt.annualInterestRate * 100).toFixed(2)}%<span> p.a.</span></div>
+              <div className="lp-type-stats">
+                <div className="lp-type-stat">
+                  <span className="lp-type-stat-label">Max Amount</span>
+                  <span className="lp-type-stat-val">BGN {lt.maxAmount.toLocaleString()}</span>
+                </div>
+                <div className="lp-type-stat">
+                  <span className="lp-type-stat-label">Max Term</span>
+                  <span className="lp-type-stat-val">{lt.maxTermMonths} mo.</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ))}
     </div>
@@ -134,6 +205,10 @@ const LoansPage: React.FC = () => {
   const [granting, setGranting]           = useState(false);
 
   const selectedType = loanTypes.find(lt => lt.category === category) ?? null;
+
+  const handleLoanTypeUpdated = (updated: LoanType) => {
+    setLoanTypes(prev => prev.map(lt => lt.id === updated.id ? updated : lt));
+  };
 
   const [searchId, setSearchId]           = useState<number | null>(null);
   const [loans, setLoans]                 = useState<Loan[]>([]);
@@ -212,7 +287,8 @@ const LoansPage: React.FC = () => {
       {/* Loan products */}
       <section style={{ marginBottom: 24 }}>
         <div className="bs-section-title">Available Loan Products</div>
-        <LoanTypeCards types={loanTypes} loading={typesLoading} />
+        <LoanTypeCards types={loanTypes} loading={typesLoading}
+          onUpdated={handleLoanTypeUpdated} toast={toast} />
       </section>
 
       <div className="lp-top-grid">

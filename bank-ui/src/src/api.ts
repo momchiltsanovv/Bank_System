@@ -124,3 +124,16 @@ export async function getLoanTypes(): Promise<LoanType[]> {
   const res = await fetch('/api/loans/types');
   return handleResponse<LoanType[]>(res);
 }
+
+export async function updateLoanType(id: number, data: {
+  annualInterestRate: number;
+  maxAmount: number;
+  maxTermMonths: number;
+}): Promise<LoanType> {
+  const res = await fetch(`/api/loans/types/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<LoanType>(res);
+}

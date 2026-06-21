@@ -2,6 +2,7 @@ package org.example.bank_system.service;
 
 import lombok.RequiredArgsConstructor;
 import org.example.bank_system.dto.request.GrantLoanRequest;
+import org.example.bank_system.dto.request.UpdateLoanTypeRequest;
 import org.example.bank_system.dto.response.LoanResponse;
 import org.example.bank_system.dto.response.LoanTypeResponse;
 import org.example.bank_system.dto.response.RepaymentInstalmentResponse;
@@ -96,6 +97,18 @@ public class LoanService {
                 .map(lt -> new LoanTypeResponse(lt.getId(), lt.getCategory(),
                         lt.getAnnualInterestRate(), lt.getMaxAmount(), lt.getMaxTermMonths()))
                 .toList();
+    }
+
+    @Transactional
+    public LoanTypeResponse updateLoanType(Long id, UpdateLoanTypeRequest req) {
+        LoanType lt = loanTypeRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Loan type not found: " + id));
+        lt.setAnnualInterestRate(req.annualInterestRate());
+        lt.setMaxAmount(req.maxAmount());
+        lt.setMaxTermMonths(req.maxTermMonths());
+        lt = loanTypeRepo.save(lt);
+        return new LoanTypeResponse(lt.getId(), lt.getCategory(),
+                lt.getAnnualInterestRate(), lt.getMaxAmount(), lt.getMaxTermMonths());
     }
 
     // --- Annuity repayment plan ---
