@@ -1,7 +1,10 @@
 package org.example.bank_system.service;
 
+import org.example.bank_system.dto.request.CreateCorporateClientRequest;
 import org.example.bank_system.dto.request.CreateIndividualClientRequest;
+import org.example.bank_system.dto.response.CorporateClientResponse;
 import org.example.bank_system.dto.response.IndividualClientResponse;
+import org.example.bank_system.entity.CorporateClient;
 import org.example.bank_system.entity.IndividualClient;
 import org.example.bank_system.exception.BusinessRuleException;
 import org.example.bank_system.repository.ClientRepository;
@@ -54,5 +57,28 @@ class ClientServiceTest {
                 new CreateIndividualClientRequest("Ivan", "Ivanov", "1234567890")))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("1234567890");
+    }
+
+    @Test
+    void createCorporate_success() {
+        when(corporateRepo.existsByEik("123456789")).thenReturn(false);
+        when(corporateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CorporateClientResponse resp = clientService.createCorporate(
+                new CreateCorporateClientRequest("Acme Ltd", "123456789", "Georgi", "Petrov"));
+
+        assertThat(resp.companyName()).isEqualTo("Acme Ltd");
+        assertThat(resp.eik()).isEqualTo("123456789");
+        assertThat(resp.representativeFirstName()).isEqualTo("Georgi");
+    }
+
+    @Test
+    void createCorporate_duplicateEik_throws() {
+        when(corporateRepo.existsByEik("123456789")).thenReturn(true);
+
+        assertThatThrownBy(() -> clientService.createCorporate(
+                new CreateCorporateClientRequest("Acme Ltd", "123456789", "Georgi", "Petrov")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("123456789");
     }
 }

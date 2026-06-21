@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -61,5 +62,31 @@ class BankAccountServiceTest {
         assertThatThrownBy(() -> bankAccountService.closeAccount(1L))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("already closed");
+    }
+
+    @Test
+    void getAccountsByClient_returnsMappedAccounts() {
+        IndividualClient client = new IndividualClient();
+        client.setFirstName("Ana");
+
+        BankAccount a1 = new BankAccount();
+        a1.setIban("BG11AAAA00001111111111");
+        a1.setBalance(BigDecimal.valueOf(1000));
+        a1.setStatus(AccountStatus.ACTIVE);
+        a1.setOwner(client);
+
+        BankAccount a2 = new BankAccount();
+        a2.setIban("BG22BBBB00002222222222");
+        a2.setBalance(BigDecimal.valueOf(500));
+        a2.setStatus(AccountStatus.CLOSED);
+        a2.setOwner(client);
+
+        when(accountRepo.findByOwnerId(5L)).thenReturn(List.of(a1, a2));
+
+        var result = bankAccountService.getAccountsByClient(5L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).iban()).isEqualTo("BG11AAAA00001111111111");
+        assertThat(result.get(1).status()).isEqualTo(AccountStatus.CLOSED);
     }
 }
