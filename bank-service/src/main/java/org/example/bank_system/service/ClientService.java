@@ -5,17 +5,22 @@ import org.example.bank_system.dto.request.CreateCorporateClientRequest;
 import org.example.bank_system.dto.request.CreateIndividualClientRequest;
 import org.example.bank_system.dto.response.CorporateClientResponse;
 import org.example.bank_system.dto.response.IndividualClientResponse;
+import org.example.bank_system.entity.AccountStatus;
+import org.example.bank_system.entity.BankAccount;
 import org.example.bank_system.entity.CorporateClient;
 import org.example.bank_system.entity.IndividualClient;
 import org.example.bank_system.exception.BusinessRuleException;
 import org.example.bank_system.exception.ResourceNotFoundException;
+import org.example.bank_system.repository.BankAccountRepository;
 import org.example.bank_system.repository.ClientRepository;
 import org.example.bank_system.repository.CorporateClientRepository;
 import org.example.bank_system.repository.IndividualClientRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +29,7 @@ public class ClientService {
     private final IndividualClientRepository individualRepo;
     private final CorporateClientRepository corporateRepo;
     private final ClientRepository clientRepo;
+    private final BankAccountRepository accountRepo;
 
     @Transactional
     public IndividualClientResponse createIndividual(CreateIndividualClientRequest req) {
@@ -35,6 +41,7 @@ public class ClientService {
         client.setLastName(req.lastName());
         client.setEgn(req.egn());
         client = individualRepo.save(client);
+        createDefaultAccount(client);
         return toResponse(client);
     }
 
@@ -49,6 +56,7 @@ public class ClientService {
         client.setRepresentativeFirstName(req.representativeFirstName());
         client.setRepresentativeLastName(req.representativeLastName());
         client = corporateRepo.save(client);
+        createDefaultAccount(client);
         return toResponse(client);
     }
 
@@ -84,6 +92,20 @@ public class ClientService {
     public CorporateClientResponse getCorporateByEik(String eik) {
         return toResponse(corporateRepo.findByEik(eik)
                 .orElseThrow(() -> new ResourceNotFoundException("Corporate client not found with EIK: " + eik)));
+    }
+
+    private void createDefaultAccount(org.example.bank_system.entity.Client client) {
+        BankAccount account = new BankAccount();
+        account.setIban(generateIban());
+        account.setBalance(BigDecimal.ZERO);
+        account.setStatus(AccountStatus.ACTIVE);
+        account.setOwner(client);
+        accountRepo.save(account);
+    }
+
+    private String generateIban() {
+        String bban = UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
+        return "BG00" + bban;
     }
 
     // package-private helper used by other services
