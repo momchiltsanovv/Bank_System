@@ -103,6 +103,14 @@ public class LoanService {
     public LoanTypeResponse updateLoanType(Long id, UpdateLoanTypeRequest req) {
         LoanType lt = loanTypeRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan type not found: " + id));
+        if (loanRepo.existsByLoanTypeIdAndAmountGreaterThan(id, req.maxAmount())) {
+            throw new BusinessRuleException(
+                    "Cannot reduce maxAmount: existing loans exceed " + req.maxAmount());
+        }
+        if (loanRepo.existsByLoanTypeIdAndTermMonthsGreaterThan(id, req.maxTermMonths())) {
+            throw new BusinessRuleException(
+                    "Cannot reduce maxTermMonths: existing loans exceed " + req.maxTermMonths());
+        }
         lt.setAnnualInterestRate(req.annualInterestRate());
         lt.setMaxAmount(req.maxAmount());
         lt.setMaxTermMonths(req.maxTermMonths());
@@ -141,10 +149,18 @@ public class LoanService {
             BigDecimal interest = remaining.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
             BigDecimal principalPart;
             if (month == termMonths) {
-                // last instalment: clear remaining to avoid rounding drift
+                // last instalment: clear remaining; guard against negative drift
+                if (remaining.signum() < 0) {
+                    throw new BusinessRuleException(
+                            "Annuity rounding error: remaining balance went negative at month " + month);
+                }
                 principalPart = remaining;
             } else {
                 principalPart = monthlyPayment.subtract(interest);
+                if (principalPart.signum() <= 0) {
+                    throw new BusinessRuleException(
+                            "Annuity calculation error: non-positive principal part at month " + month);
+                }
             }
             remaining = remaining.subtract(principalPart).setScale(2, RoundingMode.HALF_UP);
 
