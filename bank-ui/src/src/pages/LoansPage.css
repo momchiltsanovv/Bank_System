@@ -178,6 +178,7 @@
 @media (max-width: 600px) { .lp-form-grid { grid-template-columns: 1fr; } }
 .lp-field { display: flex; flex-direction: column; gap: 7px; }
 .lp-field .p-inputtext, .lp-field .p-inputnumber-input, .lp-field .p-dropdown { width: 100%; }
+.lp-field-hint { color: var(--text-muted, #6b7280); font-size: 0.78rem; margin-top: -4px; }
 .lp-form-footer {
   display: flex; justify-content: flex-end;
   margin-top: 22px; padding-top: 18px;

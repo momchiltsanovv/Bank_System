@@ -84,14 +84,7 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
 
 // ── Loan Type Cards ───────────────────────────────────────────────────────────
 
-const LoanTypeCards: React.FC = () => {
-  const [types, setTypes] = useState<LoanType[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getLoanTypes().then(setTypes).finally(() => setLoading(false));
-  }, []);
-
+const LoanTypeCards: React.FC<{ types: LoanType[]; loading: boolean }> = ({ types, loading }) => {
   if (loading) return <ProgressBar mode="indeterminate" style={{ height: 3, marginBottom: 16 }} />;
 
   return (
@@ -127,11 +120,20 @@ const LoanTypeCards: React.FC = () => {
 const LoansPage: React.FC = () => {
   const toast = useRef<Toast>(null);
 
+  const [loanTypes, setLoanTypes]         = useState<LoanType[]>([]);
+  const [typesLoading, setTypesLoading]   = useState(true);
+
+  useEffect(() => {
+    getLoanTypes().then(setLoanTypes).finally(() => setTypesLoading(false));
+  }, []);
+
   const [grantClientId, setGrantClientId] = useState<number | null>(null);
   const [category, setCategory]           = useState<'CONSUMER' | 'MORTGAGE'>('CONSUMER');
   const [amount, setAmount]               = useState<number | null>(null);
   const [termMonths, setTermMonths]       = useState<number | null>(null);
   const [granting, setGranting]           = useState(false);
+
+  const selectedType = loanTypes.find(lt => lt.category === category) ?? null;
 
   const [searchId, setSearchId]           = useState<number | null>(null);
   const [loans, setLoans]                 = useState<Loan[]>([]);
@@ -159,6 +161,16 @@ const LoansPage: React.FC = () => {
     e.preventDefault();
     if (!grantClientId || !amount || !termMonths) {
       toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'All fields are required.' }); return;
+    }
+    if (selectedType) {
+      if (amount > selectedType.maxAmount) {
+        toast.current?.show({ severity: 'warn', summary: 'Validation',
+          detail: `Amount exceeds maximum BGN ${selectedType.maxAmount.toLocaleString()} for ${category} loans.` }); return;
+      }
+      if (termMonths > selectedType.maxTermMonths) {
+        toast.current?.show({ severity: 'warn', summary: 'Validation',
+          detail: `Term exceeds maximum ${selectedType.maxTermMonths} months for ${category} loans.` }); return;
+      }
     }
     setGranting(true);
     try {
@@ -200,7 +212,7 @@ const LoansPage: React.FC = () => {
       {/* Loan products */}
       <section style={{ marginBottom: 24 }}>
         <div className="bs-section-title">Available Loan Products</div>
-        <LoanTypeCards />
+        <LoanTypeCards types={loanTypes} loading={typesLoading} />
       </section>
 
       <div className="lp-top-grid">
@@ -225,18 +237,29 @@ const LoansPage: React.FC = () => {
               <div className="lp-field">
                 <label>Category</label>
                 <Dropdown value={category} options={CATEGORY_OPTIONS}
-                  onChange={e => setCategory(e.value)} disabled={granting} />
+                  onChange={e => { setCategory(e.value); setAmount(null); setTermMonths(null); }}
+                  disabled={granting} />
               </div>
               <div className="lp-field">
                 <label>Amount (BGN)</label>
                 <InputNumber value={amount} onValueChange={e => setAmount(e.value ?? null)}
-                  placeholder="e.g. 10 000" min={1} minFractionDigits={2} maxFractionDigits={2}
+                  placeholder="e.g. 10 000" min={1}
+                  max={selectedType?.maxAmount ?? undefined}
+                  minFractionDigits={2} maxFractionDigits={2}
                   disabled={granting} useGrouping={false} />
+                {selectedType && (
+                  <small className="lp-field-hint">Max: BGN {selectedType.maxAmount.toLocaleString()}</small>
+                )}
               </div>
               <div className="lp-field">
                 <label>Term (months)</label>
                 <InputNumber value={termMonths} onValueChange={e => setTermMonths(e.value ?? null)}
-                  placeholder="e.g. 36" min={1} disabled={granting} useGrouping={false} />
+                  placeholder="e.g. 36" min={1}
+                  max={selectedType?.maxTermMonths ?? undefined}
+                  disabled={granting} useGrouping={false} />
+                {selectedType && (
+                  <small className="lp-field-hint">Max: {selectedType.maxTermMonths} months</small>
+                )}
               </div>
             </div>
             <div className="lp-form-footer">
