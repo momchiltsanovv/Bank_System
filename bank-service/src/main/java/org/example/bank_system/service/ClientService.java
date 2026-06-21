@@ -74,6 +74,18 @@ public class ClientService {
                 .orElseThrow(() -> new ResourceNotFoundException("Corporate client not found: " + id)));
     }
 
+    @Transactional(readOnly = true)
+    public IndividualClientResponse getIndividualByEgn(String egn) {
+        return toResponse(individualRepo.findByEgn(egn)
+                .orElseThrow(() -> new ResourceNotFoundException("Individual client not found with EGN: " + egn)));
+    }
+
+    @Transactional(readOnly = true)
+    public CorporateClientResponse getCorporateByEik(String eik) {
+        return toResponse(corporateRepo.findByEik(eik)
+                .orElseThrow(() -> new ResourceNotFoundException("Corporate client not found with EIK: " + eik)));
+    }
+
     // package-private helper used by other services
     org.example.bank_system.entity.Client getClientEntityById(Long id) {
         return clientRepo.findById(id)

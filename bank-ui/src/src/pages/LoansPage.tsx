@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { InputNumber } from 'primereact/inputnumber';
+import { InputText } from 'primereact/inputtext';
+import { SelectButton } from 'primereact/selectbutton';
 import { Dropdown } from 'primereact/dropdown';
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
@@ -9,7 +11,14 @@ import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { ProgressBar } from 'primereact/progressbar';
 import { Chip } from 'primereact/chip';
-import { getLoanTypes, updateLoanType, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment } from '../api';
+import { getLoanTypes, updateLoanType, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment, getIndividualByEgn, getCorporateByEik } from '../api';
+
+type SearchMode = 'ID' | 'EGN' | 'EIK';
+const SEARCH_MODES = [
+  { label: 'ID', value: 'ID' },
+  { label: 'EGN', value: 'EGN' },
+  { label: 'EIK', value: 'EIK' },
+];
 import { LoanType, Loan, RepaymentInstalment } from '../types';
 import './LoansPage.css';
 
@@ -210,7 +219,10 @@ const LoansPage: React.FC = () => {
     setLoanTypes(prev => prev.map(lt => lt.id === updated.id ? updated : lt));
   };
 
+  const [searchMode, setSearchMode]       = useState<SearchMode>('ID');
+  const [searchQuery, setSearchQuery]     = useState('');
   const [searchId, setSearchId]           = useState<number | null>(null);
+  const [searchLabel, setSearchLabel]     = useState('');
   const [loans, setLoans]                 = useState<Loan[]>([]);
   const [searching, setSearching]         = useState(false);
   const [hasSearched, setHasSearched]     = useState(false);
@@ -225,11 +237,35 @@ const LoansPage: React.FC = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchId || searchId <= 0) {
-      toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a valid Client ID.' }); return;
+    if (!searchQuery.trim()) {
+      toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a search value.' }); return;
     }
-    setHasSearched(true); setExpandedRows(null);
-    await loadLoans(searchId);
+    setSearching(true);
+    try {
+      let clientId: number;
+      if (searchMode === 'EGN') {
+        const client = await getIndividualByEgn(searchQuery.trim());
+        clientId = client.id;
+        setSearchLabel(`EGN ${searchQuery.trim()} (Client #${clientId})`);
+      } else if (searchMode === 'EIK') {
+        const client = await getCorporateByEik(searchQuery.trim());
+        clientId = client.id;
+        setSearchLabel(`EIK ${searchQuery.trim()} (Client #${clientId})`);
+      } else {
+        clientId = parseInt(searchQuery.trim(), 10);
+        if (isNaN(clientId) || clientId <= 0) {
+          toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a valid numeric Client ID.' });
+          setSearching(false); return;
+        }
+        setSearchLabel(`#${clientId}`);
+      }
+      setSearchId(clientId);
+      setHasSearched(true); setExpandedRows(null);
+      await loadLoans(clientId);
+    } catch (e: any) {
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
+      setSearching(false);
+    }
   };
 
   const handleGrant = async (e: React.FormEvent) => {
@@ -356,9 +392,16 @@ const LoansPage: React.FC = () => {
           </div>
           <form onSubmit={handleSearch}>
             <div className="lp-field" style={{ marginBottom: 12 }}>
-              <label>Client ID</label>
-              <InputNumber value={searchId} onValueChange={e => setSearchId(e.value ?? null)}
-                placeholder="Enter Client ID" min={1} disabled={searching} useGrouping={false} />
+              <label>Search by</label>
+              <SelectButton value={searchMode} options={SEARCH_MODES}
+                onChange={e => { setSearchMode(e.value); setSearchQuery(''); }}
+                disabled={searching} />
+            </div>
+            <div className="lp-field" style={{ marginBottom: 12 }}>
+              <label>{searchMode === 'ID' ? 'Client ID' : searchMode === 'EGN' ? 'EGN (10 digits)' : 'EIK (9–13 digits)'}</label>
+              <InputText value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder={searchMode === 'ID' ? 'e.g. 1' : searchMode === 'EGN' ? 'e.g. 1234567890' : 'e.g. 123456789'}
+                disabled={searching} />
             </div>
             <Button type="submit" label="Load Loans" icon="pi pi-search"
               className="bs-btn-navy" loading={searching} />
@@ -389,7 +432,7 @@ const LoansPage: React.FC = () => {
 
           <Card>
             <div className="cp-table-header">
-              <span className="cp-table-title">Loans — Client #{searchId}</span>
+              <span className="cp-table-title">Loans — Client {searchLabel}</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {loans.filter(l => l.loanCategory === 'CONSUMER').length > 0 &&
                   <Chip label={`${loans.filter(l => l.loanCategory === 'CONSUMER').length} Consumer`} />}

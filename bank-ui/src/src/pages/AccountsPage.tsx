@@ -3,14 +3,22 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
+import { SelectButton } from 'primereact/selectbutton';
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { Message } from 'primereact/message';
-import { openAccount, getAccountsByClient, closeAccount } from '../api';
+import { openAccount, getAccountsByClient, closeAccount, getIndividualByEgn, getCorporateByEik } from '../api';
 import { BankAccount } from '../types';
 import './AccountsPage.css';
+
+type SearchMode = 'ID' | 'EGN' | 'EIK';
+const SEARCH_MODES = [
+  { label: 'ID', value: 'ID' },
+  { label: 'EGN', value: 'EGN' },
+  { label: 'EIK', value: 'EIK' },
+];
 
 const AccountsPage: React.FC = () => {
   const toast = useRef<Toast>(null);
@@ -19,11 +27,14 @@ const AccountsPage: React.FC = () => {
   const [iban, setIban]           = useState('');
   const [opening, setOpening]     = useState(false);
 
-  const [searchId, setSearchId]   = useState<number | null>(null);
-  const [accounts, setAccounts]   = useState<BankAccount[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [closingId, setClosingId] = useState<number | null>(null);
+  const [searchMode, setSearchMode]     = useState<SearchMode>('ID');
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [resolvedId, setResolvedId]     = useState<number | null>(null);
+  const [searchLabel, setSearchLabel]   = useState('');
+  const [accounts, setAccounts]         = useState<BankAccount[]>([]);
+  const [searching, setSearching]       = useState(false);
+  const [hasSearched, setHasSearched]   = useState(false);
+  const [closingId, setClosingId]       = useState<number | null>(null);
 
   const loadAccounts = useCallback(async (id: number) => {
     setSearching(true);
@@ -34,11 +45,35 @@ const AccountsPage: React.FC = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchId || searchId <= 0) {
-      toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a valid Client ID.' }); return;
+    if (!searchQuery.trim()) {
+      toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a search value.' }); return;
     }
-    setHasSearched(true);
-    await loadAccounts(searchId);
+    setSearching(true);
+    try {
+      let clientId: number;
+      if (searchMode === 'EGN') {
+        const client = await getIndividualByEgn(searchQuery.trim());
+        clientId = client.id;
+        setSearchLabel(`EGN ${searchQuery.trim()} (Client #${clientId})`);
+      } else if (searchMode === 'EIK') {
+        const client = await getCorporateByEik(searchQuery.trim());
+        clientId = client.id;
+        setSearchLabel(`EIK ${searchQuery.trim()} (Client #${clientId})`);
+      } else {
+        clientId = parseInt(searchQuery.trim(), 10);
+        if (isNaN(clientId) || clientId <= 0) {
+          toast.current?.show({ severity: 'warn', summary: 'Validation', detail: 'Enter a valid numeric Client ID.' });
+          setSearching(false); return;
+        }
+        setSearchLabel(`#${clientId}`);
+      }
+      setResolvedId(clientId);
+      setHasSearched(true);
+      await loadAccounts(clientId);
+    } catch (e: any) {
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
+      setSearching(false);
+    }
   };
 
   const handleOpen = async (e: React.FormEvent) => {
@@ -51,7 +86,7 @@ const AccountsPage: React.FC = () => {
       const acc = await openAccount({ clientId, iban: iban.trim() });
       toast.current?.show({ severity: 'success', summary: 'Account Opened', detail: `${acc.iban} is now active.` });
       setClientId(null); setIban('');
-      if (searchId === clientId) await loadAccounts(clientId);
+      if (resolvedId === clientId) await loadAccounts(clientId);
     } catch (e: any) {
       toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
     } finally { setOpening(false); }
@@ -61,7 +96,7 @@ const AccountsPage: React.FC = () => {
     setClosingId(acc.id);
     try {
       await closeAccount(acc.id);
-      if (searchId) await loadAccounts(searchId);
+      if (resolvedId) await loadAccounts(resolvedId);
       toast.current?.show({ severity: 'success', summary: 'Closed', detail: `${acc.iban} has been closed.` });
     } catch (e: any) {
       toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
@@ -111,14 +146,21 @@ const AccountsPage: React.FC = () => {
             <div className="ap-form-icon ap-form-icon--search"><i className="pi pi-search" /></div>
             <div>
               <div className="ap-form-title">Find Client Accounts</div>
-              <div className="ap-form-sub">Look up all accounts by client ID</div>
+              <div className="ap-form-sub">Search by Client ID, EGN, or EIK</div>
             </div>
           </div>
           <form className="ap-form" onSubmit={handleSearch}>
             <div className="ap-field">
-              <label>Client ID</label>
-              <InputNumber value={searchId} onValueChange={e => setSearchId(e.value ?? null)}
-                placeholder="Enter Client ID" min={1} disabled={searching} useGrouping={false} />
+              <label>Search by</label>
+              <SelectButton value={searchMode} options={SEARCH_MODES}
+                onChange={e => { setSearchMode(e.value); setSearchQuery(''); }}
+                disabled={searching} />
+            </div>
+            <div className="ap-field">
+              <label>{searchMode === 'ID' ? 'Client ID' : searchMode === 'EGN' ? 'EGN (10 digits)' : 'EIK (9–13 digits)'}</label>
+              <InputText value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder={searchMode === 'ID' ? 'e.g. 1' : searchMode === 'EGN' ? 'e.g. 1234567890' : 'e.g. 123456789'}
+                disabled={searching} />
             </div>
             <Button type="submit" label="Load Accounts" icon="pi pi-search"
               className="bs-btn-navy" loading={searching} style={{ marginTop: 4 }} />
@@ -146,7 +188,7 @@ const AccountsPage: React.FC = () => {
 
           <Card>
             <div className="cp-table-header">
-              <span className="cp-table-title">Accounts — Client #{searchId}</span>
+              <span className="cp-table-title">Accounts — Client {searchLabel}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Tag value={`${active} active`} severity="success" />
                 {closed > 0 && <Tag value={`${closed} closed`} severity="danger" />}

@@ -46,8 +46,18 @@ public class ClientController {
         return clientService.getIndividualById(id);
     }
 
+    @GetMapping("/individual/by-egn")
+    public IndividualClientResponse getIndividualByEgn(@RequestParam("egn") String egn) {
+        return clientService.getIndividualByEgn(egn);
+    }
+
     @GetMapping("/corporate/{id}")
     public CorporateClientResponse getCorporate(@PathVariable("id") Long id) {
         return clientService.getCorporateById(id);
+    }
+
+    @GetMapping("/corporate/by-eik")
+    public CorporateClientResponse getCorporateByEik(@RequestParam("eik") String eik) {
+        return clientService.getCorporateByEik(eik);
     }
 }

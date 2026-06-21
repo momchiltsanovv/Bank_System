@@ -62,6 +62,16 @@ export async function getCorporateClients(): Promise<CorporateClient[]> {
   return handleResponse<CorporateClient[]>(res);
 }
 
+export async function getIndividualByEgn(egn: string): Promise<IndividualClient> {
+  const res = await fetch(`/api/clients/individual/by-egn?egn=${encodeURIComponent(egn)}`);
+  return handleResponse<IndividualClient>(res);
+}
+
+export async function getCorporateByEik(eik: string): Promise<CorporateClient> {
+  const res = await fetch(`/api/clients/corporate/by-eik?eik=${encodeURIComponent(eik)}`);
+  return handleResponse<CorporateClient>(res);
+}
+
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
 export async function openAccount(data: {
