@@ -54,6 +54,18 @@ class BankAccountServiceTest {
     }
 
     @Test
+    void closeAccount_nonZeroBalance_throws() {
+        BankAccount account = new BankAccount();
+        account.setStatus(AccountStatus.ACTIVE);
+        account.setBalance(BigDecimal.valueOf(100));
+        when(accountRepo.findById(1L)).thenReturn(Optional.of(account));
+
+        assertThatThrownBy(() -> bankAccountService.closeAccount(1L))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("non-zero balance");
+    }
+
+    @Test
     void closeAccount_alreadyClosed_throws() {
         BankAccount account = new BankAccount();
         account.setStatus(AccountStatus.CLOSED);

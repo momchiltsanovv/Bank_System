@@ -43,6 +43,9 @@ public class BankAccountService {
         if (account.getStatus() == AccountStatus.CLOSED) {
             throw new BusinessRuleException("Account is already closed");
         }
+        if (account.getBalance().signum() > 0) {
+            throw new BusinessRuleException("Cannot close account with non-zero balance: " + account.getBalance());
+        }
         account.setStatus(AccountStatus.CLOSED);
         return toResponse(accountRepo.save(account));
     }
