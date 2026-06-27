@@ -69,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ currentPage, onNavigate, children }) =>
           </div>
           <div>
             <div className="bs-sidebar-footer-name">Secure Connection</div>
-            <div className="bs-sidebar-footer-role">v1.0 · Production</div>
+            <div className="bs-sidebar-footer-role">v1.0.0 · Production</div>
           </div>
         </div>
       </aside>
