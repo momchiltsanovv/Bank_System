@@ -57,7 +57,7 @@ const RepaymentPlanDialog: React.FC<{
 
   return (
     <Dialog
-      header={`Repayment Plan — Loan #${loanId}`}
+      header={`Repayment Plan - Loan #${loanId}`}
       visible={loanId !== null} onHide={onHide}
       style={{ width: '92vw', maxWidth: 940 }} modal dismissableMask
     >

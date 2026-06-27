@@ -188,7 +188,7 @@ const AccountsPage: React.FC = () => {
 
           <Card>
             <div className="cp-table-header">
-              <span className="cp-table-title">Accounts — Client {searchLabel}</span>
+              <span className="cp-table-title">Accounts - Client {searchLabel}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Tag value={`${active} active`} severity="success" />
                 {closed > 0 && <Tag value={`${closed} closed`} severity="danger" />}

@@ -1,4 +1,4 @@
-# Bank System — Техническа документация
+# Bank System - Техническа документация
 
 ## 1. Описание на техническото решение
 
@@ -30,8 +30,8 @@
 | `id` | BIGINT PK FK → clients | |
 | `company_name` | VARCHAR | Наименование на фирмата |
 | `eik` | VARCHAR(13) UNIQUE | ЕИК (9–13 цифри) |
-| `representative_first_name` | VARCHAR | Представител — Име |
-| `representative_last_name` | VARCHAR | Представител — Фамилия |
+| `representative_first_name` | VARCHAR | Представител - Име |
+| `representative_last_name` | VARCHAR | Представител - Фамилия |
 
 #### `bank_accounts`
 | Колона | Тип | Описание |
@@ -145,11 +145,11 @@ Bank_System/
 
 ### 4.1 Наследяване на клиенти (JOINED Inheritance)
 
-`Client` е абстрактен JPA ентити с JOINED стратегия. `IndividualClient` и `CorporateClient` го разширяват — данните им са в отделни таблици, свързани по `id`. Дискриминаторна колона `client_type` в `clients` указва вида.
+`Client` е абстрактен JPA ентити с JOINED стратегия. `IndividualClient` и `CorporateClient` го разширяват - данните им са в отделни таблици, свързани по `id`. Дискриминаторна колона `client_type` в `clients` указва вида.
 
 ### 4.2 Автоматично създаване на банкова сметка
 
-При регистриране на нов клиент (физическо или юридическо лице) `ClientService` автоматично открива банкова сметка. IBAN се генерира като `BG00` + 16 hex символа от UUID — уникален и съответстващ на формата `[A-Z]{2}\d{2}[A-Z0-9]{1,30}`. Операцията е атомарна: ако създаването на клиента се провали, сметката не се записва.
+При регистриране на нов клиент (физическо или юридическо лице) `ClientService` автоматично открива банкова сметка. IBAN се генерира като `BG00` + 16 hex символа от UUID - уникален и съответстващ на формата `[A-Z]{2}\d{2}[A-Z0-9]{1,30}`. Операцията е атомарна: ако създаването на клиента се провали, сметката не се записва.
 
 ### 4.3 Анюитетно погасяване
 
@@ -161,9 +161,9 @@ Bank_System/
 M = P × r / (1 − (1 + r)^(−n))
 ```
 
-- `P` — главница (отпусната сума)
-- `r` — месечна лихва = годишна лихва / 12
-- `n` — брой месеци
+- `P` - главница (отпусната сума)
+- `r` - месечна лихва = годишна лихва / 12
+- `n` - брой месеци
 
 **Разпределение по месец:**
 - Лихва за месец k = оставаща главница × r
@@ -172,7 +172,7 @@ M = P × r / (1 − (1 + r)^(−n))
 - Ако при последна вноска остатъкът е отрицателен (натрупана грешка), се хвърля `BusinessRuleException`
 - Ако в междинен месец дялът главница е ≤ 0, се хвърля `BusinessRuleException`
 
-Вноските са равни за целия срок. В началото преобладава лихвата, към края — главницата.
+Вноските са равни за целия срок. В началото преобладава лихвата, към края - главницата.
 
 ### 4.4 Бизнес правила
 
@@ -240,16 +240,16 @@ M = P × r / (1 − (1 + r)^(−n))
 |---|---|---|
 | Java | 21 | Език за програмиране |
 | Spring Boot | 4.x | Уеб рамка, IoC контейнер |
-| Spring Data JPA | — | ORM слой |
-| Spring Security | — | Конфигурация на сигурността |
-| Spring Validation | — | Валидиране на входни данни |
-| Hibernate | — | JPA имплементация |
+| Spring Data JPA | - | ORM слой |
+| Spring Security | - | Конфигурация на сигурността |
+| Spring Validation | - | Валидиране на входни данни |
+| Hibernate | - | JPA имплементация |
 | PostgreSQL | 15+ | Релационна БД (продукция) |
-| H2 | — | In-memory БД (тестове) |
-| Lombok | — | Намаляване на шаблонен код |
-| JUnit 5 | — | Unit и интеграционни тестове |
-| Mockito | — | Мокване при unit тестове |
-| Spring MockMvc | — | HTTP слой при интеграционни тестове |
+| H2 | - | In-memory БД (тестове) |
+| Lombok | - | Намаляване на шаблонен код |
+| JUnit 5 | - | Unit и интеграционни тестове |
+| Mockito | - | Мокване при unit тестове |
+| Spring MockMvc | - | HTTP слой при интеграционни тестове |
 | JsonPath | 2.x | Парсване на JSON отговори в тестове |
 | Maven | 3.x | Изграждане на проекта |
 
@@ -258,9 +258,9 @@ M = P × r / (1 − (1 + r)^(−n))
 |---|---|---|
 | React | 18 | UI рамка |
 | TypeScript | 5.x | Типизиран JavaScript |
-| PrimeReact | — | UI компонент библиотека |
-| PrimeFlex | — | CSS utility класове |
-| Create React App | — | Конфигурация и dev сървър |
+| PrimeReact | - | UI компонент библиотека |
+| PrimeFlex | - | CSS utility класове |
+| Create React App | - | Конфигурация и dev сървър |
 
 ---
 
@@ -273,9 +273,9 @@ M = P × r / (1 − (1 + r)^(−n))
 | `ClientServiceTest` | Създаване на клиент, дублирано ЕГН/ЕИК, автоматична сметка |
 | `BankAccountServiceTest` | Откриване/закриване, ненулева наличност, дублиран IBAN |
 | `LoanServiceTest` | Отпускане, валидация на лимити, плащане, статус, промяна на вид |
-| `LoanServiceAnnuityTest` | Анюитетни изчисления — коректност на план, последна вноска |
+| `LoanServiceAnnuityTest` | Анюитетни изчисления - коректност на план, последна вноска |
 
-Използват Mockito — без реална база данни.
+Използват Mockito - без реална база данни.
 
 ### Интеграционни тестове (`src/test/java/.../integration/`)
 
@@ -303,13 +303,13 @@ M = P × r / (1 − (1 + r)^(−n))
 
 ## 7. Използвани източници
 
-- Spring Boot документация — https://docs.spring.io/spring-boot/docs/current/reference/html/
-- Spring Data JPA документация — https://docs.spring.io/spring-data/jpa/docs/current/reference/html/
-- Jakarta Validation спецификация — https://beanvalidation.org/
-- React документация — https://react.dev/
-- PrimeReact документация — https://primereact.org/
-- RFC 7807 (Problem Details for HTTP APIs) — https://www.rfc-editor.org/rfc/rfc7807
-- Анюитетна формула — https://en.wikipedia.org/wiki/Annuity
+- Spring Boot документация - https://docs.spring.io/spring-boot/docs/current/reference/html/
+- Spring Data JPA документация - https://docs.spring.io/spring-data/jpa/docs/current/reference/html/
+- Jakarta Validation спецификация - https://beanvalidation.org/
+- React документация - https://react.dev/
+- PrimeReact документация - https://primereact.org/
+- RFC 7807 (Problem Details for HTTP APIs) - https://www.rfc-editor.org/rfc/rfc7807
+- Анюитетна формула - https://en.wikipedia.org/wiki/Annuity
 
 ---
 

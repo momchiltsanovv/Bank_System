@@ -36,7 +36,7 @@
 @keyframes blobDrift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(16px,-28px) scale(1.06); } }
 
 /* ═══════════════════════════════════
-   Loan Type Cards — premium look
+   Loan Type Cards - premium look
 ═══════════════════════════════════ */
 .lp-type-grid { display: flex; gap: 20px; flex-wrap: wrap; }
 
@@ -52,13 +52,13 @@
 }
 .lp-type-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 
-/* Consumer — blue gradient */
+/* Consumer - blue gradient */
 .lp-type-card--consumer {
   background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 60%, #3b82f6 100%);
   color: #fff;
 }
 
-/* Mortgage — gold/navy gradient */
+/* Mortgage - gold/navy gradient */
 .lp-type-card--mortgage {
   background: linear-gradient(135deg, var(--navy) 0%, #1e3260 55%, #2a4a8a 100%);
   color: #fff;

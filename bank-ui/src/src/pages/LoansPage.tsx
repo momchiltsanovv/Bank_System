@@ -288,7 +288,7 @@ const LoansPage: React.FC = () => {
       const loan = await grantLoan({ clientId: grantClientId, loanCategory: category, amount, termMonths });
       toast.current?.show({
         severity: 'success', summary: 'Loan Granted',
-        detail: `Loan #${loan.id} — BGN ${loan.amount.toFixed(2)} for ${loan.termMonths} months.`,
+        detail: `Loan #${loan.id} - BGN ${loan.amount.toFixed(2)} for ${loan.termMonths} months.`,
       });
       setGrantClientId(null); setAmount(null); setTermMonths(null);
       if (searchId === grantClientId) await loadLoans(grantClientId);
@@ -432,7 +432,7 @@ const LoansPage: React.FC = () => {
 
           <Card>
             <div className="cp-table-header">
-              <span className="cp-table-title">Loans — Client {searchLabel}</span>
+              <span className="cp-table-title">Loans - Client {searchLabel}</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {loans.filter(l => l.loanCategory === 'CONSUMER').length > 0 &&
                   <Chip label={`${loans.filter(l => l.loanCategory === 'CONSUMER').length} Consumer`} />}
