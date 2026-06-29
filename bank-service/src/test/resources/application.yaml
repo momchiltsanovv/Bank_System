@@ -17,3 +17,7 @@ spring:
   sql:
     init:
       mode: always
+
+bank:
+  seed:
+    enabled: false
