@@ -146,6 +146,15 @@ class LoanControllerIT extends BaseIT {
     }
 
     @Test
+    void payInstalment_skippingPreviousUnpaidInstalments_returns422() throws Exception {
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(patch("/api/loans/" + loanId + "/instalments/2/pay"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail", containsString("Previous instalments")));
+    }
+
+    @Test
     void getLoanStatus_reflectsPaidInstalments() throws Exception {
         long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
 

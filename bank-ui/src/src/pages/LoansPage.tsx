@@ -57,6 +57,7 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
   const paid = plan.filter(i => i.paid).length;
   const pct  = plan.length > 0 ? Math.round((paid / plan.length) * 100) : 0;
   const fmt  = (v: number) => `BGN ${v.toFixed(2)}`;
+  const nextPayableMonth = plan.find(i => !i.paid)?.monthNumber ?? null;
 
   if (loading) return <ProgressBar mode="indeterminate" style={{ height: 3 }} />;
 
@@ -80,11 +81,14 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
                    : <Tag severity="warning" value="Pending" icon="pi pi-clock" />}
         />
         <Column header="" style={{ width: 90 }}
-          body={(r: RepaymentInstalment) =>
-            r.paid ? null : (
+          body={(r: RepaymentInstalment) => {
+            const canPay = r.monthNumber === nextPayableMonth;
+            return r.paid ? null : (
               <Button label="Pay" icon="pi pi-check-circle" size="small" className="bs-btn-navy"
-                loading={payingMonth === r.monthNumber} onClick={() => handlePay(r)} />
-            )}
+                loading={payingMonth === r.monthNumber} disabled={!canPay || payingMonth !== null}
+                onClick={() => handlePay(r)} />
+            );
+          }}
         />
       </DataTable>
     </div>

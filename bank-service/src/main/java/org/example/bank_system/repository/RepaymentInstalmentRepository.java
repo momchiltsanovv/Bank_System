@@ -14,5 +14,7 @@ public interface RepaymentInstalmentRepository extends JpaRepository<RepaymentIn
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RepaymentInstalment> findByLoanIdAndMonthNumber(Long loanId, Integer monthNumber);
 
+    boolean existsByLoanIdAndMonthNumberLessThanAndPaidFalse(Long loanId, Integer monthNumber);
+
     long countByLoanIdAndPaidTrue(Long loanId);
 }

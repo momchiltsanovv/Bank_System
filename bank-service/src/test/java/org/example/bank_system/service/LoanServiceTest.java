@@ -99,6 +99,19 @@ class LoanServiceTest {
     }
 
     @Test
+    void payInstalment_whenPreviousInstalmentsAreUnpaid_throws() {
+        RepaymentInstalment inst = new RepaymentInstalment();
+        inst.setMonthNumber(3);
+        inst.setPaid(false);
+        when(instalmentRepo.findByLoanIdAndMonthNumber(1L, 3)).thenReturn(Optional.of(inst));
+        when(instalmentRepo.existsByLoanIdAndMonthNumberLessThanAndPaidFalse(1L, 3)).thenReturn(true);
+
+        assertThatThrownBy(() -> loanService.payInstalment(1L, 3))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("Previous instalments");
+    }
+
+    @Test
     void getLoanStatus_partial() {
         Loan loan = new Loan();
         loan.setTermMonths(12);

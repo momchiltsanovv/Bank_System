@@ -79,6 +79,9 @@ public class LoanService {
         if (instalment.isPaid()) {
             throw new BusinessRuleException("Instalment " + monthNumber + " is already paid");
         }
+        if (instalmentRepo.existsByLoanIdAndMonthNumberLessThanAndPaidFalse(loanId, monthNumber)) {
+            throw new BusinessRuleException("Previous instalments must be paid before month " + monthNumber);
+        }
         instalment.setPaid(true);
         return toInstalmentResponse(instalmentRepo.save(instalment));
     }

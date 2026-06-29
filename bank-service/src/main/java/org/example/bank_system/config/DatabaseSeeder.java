@@ -11,11 +11,9 @@ import org.example.bank_system.dto.response.IndividualClientResponse;
 import org.example.bank_system.entity.AccountStatus;
 import org.example.bank_system.entity.BankAccount;
 import org.example.bank_system.entity.LoanCategory;
-import org.example.bank_system.entity.LoanType;
 import org.example.bank_system.repository.BankAccountRepository;
 import org.example.bank_system.repository.CorporateClientRepository;
 import org.example.bank_system.repository.IndividualClientRepository;
-import org.example.bank_system.repository.LoanTypeRepository;
 import org.example.bank_system.service.BankAccountService;
 import org.example.bank_system.service.ClientService;
 import org.example.bank_system.service.LoanService;
@@ -36,7 +34,6 @@ public class DatabaseSeeder implements ApplicationRunner {
     private static final String SECOND_INDIVIDUAL_EGN = "9203050002";
     private static final String CORPORATE_EIK = "123456789";
 
-    private final LoanTypeRepository loanTypeRepo;
     private final BankAccountRepository accountRepo;
     private final IndividualClientRepository individualRepo;
     private final CorporateClientRepository corporateRepo;
@@ -47,8 +44,6 @@ public class DatabaseSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        seedLoanTypes();
-
         IndividualClientResponse maria = ensureIndividualClient(
                 "Maria", "Petrova", INDIVIDUAL_EGN);
         IndividualClientResponse georgi = ensureIndividualClient(
@@ -64,23 +59,6 @@ public class DatabaseSeeder implements ApplicationRunner {
         ensureLoan(maria.id(), LoanCategory.CONSUMER, BigDecimal.valueOf(10000), 12);
         ensureLoan(georgi.id(), LoanCategory.CONSUMER, BigDecimal.valueOf(25000), 36);
         ensureLoan(techno.id(), LoanCategory.MORTGAGE, BigDecimal.valueOf(150000), 240);
-    }
-
-    private void seedLoanTypes() {
-        ensureLoanType(LoanCategory.CONSUMER, BigDecimal.valueOf(0.0850), BigDecimal.valueOf(50000), 84);
-        ensureLoanType(LoanCategory.MORTGAGE, BigDecimal.valueOf(0.0450), BigDecimal.valueOf(500000), 360);
-    }
-
-    private void ensureLoanType(LoanCategory category, BigDecimal annualRate,
-                                BigDecimal maxAmount, int maxTermMonths) {
-        loanTypeRepo.findByCategory(category).orElseGet(() -> {
-            LoanType loanType = new LoanType();
-            loanType.setCategory(category);
-            loanType.setAnnualInterestRate(annualRate);
-            loanType.setMaxAmount(maxAmount);
-            loanType.setMaxTermMonths(maxTermMonths);
-            return loanTypeRepo.save(loanType);
-        });
     }
 
     private IndividualClientResponse ensureIndividualClient(String firstName, String lastName, String egn) {
