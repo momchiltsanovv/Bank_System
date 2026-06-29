@@ -17,7 +17,7 @@ class LoanServiceAnnuityTest {
     @BeforeEach
     void setUp() {
         // Construct with nulls - we only test the private buildAnnuityPlan method via reflection
-        loanService = new LoanService(null, null, null, null);
+        loanService = new LoanService(null, null, null, null, null);
     }
 
     @Test

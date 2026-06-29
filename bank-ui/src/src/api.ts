@@ -124,10 +124,13 @@ export async function getRepaymentPlan(loanId: number): Promise<RepaymentInstalm
 
 export async function payInstalment(
   loanId: number,
-  monthNumber: number
+  monthNumber: number,
+  accountId: number
 ): Promise<RepaymentInstalment> {
   const res = await fetch(`/api/loans/${loanId}/instalments/${monthNumber}/pay`, {
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
   });
   return handleResponse<RepaymentInstalment>(res);
 }

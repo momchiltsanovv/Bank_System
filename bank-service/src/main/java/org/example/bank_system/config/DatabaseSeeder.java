@@ -51,10 +51,16 @@ public class DatabaseSeeder implements ApplicationRunner {
         CorporateClientResponse techno = ensureCorporateClient(
                 "TechnoLogica Ltd", CORPORATE_EIK, "Elena", "Nikolova");
 
-        ensureAccount(maria.id(), "BG80BNBG96611020345678", false);
-        ensureAccount(maria.id(), "BG18BNBG96611020345679", true);
-        ensureAccount(georgi.id(), "BG42BNBG96611020345680", false);
-        ensureAccount(techno.id(), "BG64BNBG96611020345681", false);
+        ensureAccount(maria.id(), "BG80BNBG96611020345678", BigDecimal.valueOf(15000), false);
+        ensureAccount(maria.id(), "BG29BNBG96611020345682", BigDecimal.valueOf(2500), false);
+        ensureAccount(maria.id(), "BG51BNBG96611020345683", BigDecimal.valueOf(750), false);
+        ensureAccount(maria.id(), "BG18BNBG96611020345679", BigDecimal.ZERO, true);
+        ensureAccount(georgi.id(), "BG42BNBG96611020345680", BigDecimal.valueOf(35000), false);
+        ensureAccount(georgi.id(), "BG73BNBG96611020345684", BigDecimal.valueOf(12000), false);
+        ensureAccount(georgi.id(), "BG95BNBG96611020345685", BigDecimal.ZERO, false);
+        ensureAccount(techno.id(), "BG64BNBG96611020345681", BigDecimal.valueOf(200000), false);
+        ensureAccount(techno.id(), "BG16BNBG96611020345686", BigDecimal.valueOf(50000), false);
+        ensureAccount(techno.id(), "BG38BNBG96611020345687", BigDecimal.ZERO, true);
 
         ensureLoan(maria.id(), LoanCategory.CONSUMER, BigDecimal.valueOf(10000), 12);
         ensureLoan(georgi.id(), LoanCategory.CONSUMER, BigDecimal.valueOf(25000), 36);
@@ -80,7 +86,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                         companyName, eik, representativeFirstName, representativeLastName)));
     }
 
-    private void ensureAccount(Long clientId, String iban, boolean closeAfterCreation) {
+    private void ensureAccount(Long clientId, String iban, BigDecimal balance, boolean closeAfterCreation) {
         BankAccount account = accountRepo.findByIban(iban)
                 .orElseGet(() -> {
                     BankAccountResponse response = accountService.openAccount(
@@ -88,6 +94,10 @@ public class DatabaseSeeder implements ApplicationRunner {
                     return accountRepo.findById(response.id()).orElseThrow();
                 });
 
+        if (!closeAfterCreation && account.getBalance().compareTo(balance) < 0) {
+            account.setBalance(balance);
+            accountRepo.save(account);
+        }
         if (closeAfterCreation && account.getStatus() == AccountStatus.ACTIVE) {
             accountService.closeAccount(account.getId());
         }

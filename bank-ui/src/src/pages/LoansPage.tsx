@@ -11,7 +11,7 @@ import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { ProgressBar } from 'primereact/progressbar';
 import { Chip } from 'primereact/chip';
-import { getLoanTypes, updateLoanType, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment, getIndividualByEgn, getCorporateByEik } from '../api';
+import { getLoanTypes, updateLoanType, grantLoan, getLoansByClient, getRepaymentPlan, payInstalment, getIndividualByEgn, getCorporateByEik, getAccountsByClient } from '../api';
 
 type SearchMode = 'ID' | 'EGN' | 'EIK';
 const SEARCH_MODES = [
@@ -19,7 +19,7 @@ const SEARCH_MODES = [
   { label: 'EGN', value: 'EGN' },
   { label: 'EIK', value: 'EIK' },
 ];
-import { LoanType, Loan, RepaymentInstalment } from '../types';
+import { BankAccount, LoanType, Loan, RepaymentInstalment } from '../types';
 import './LoansPage.css';
 
 const CATEGORY_OPTIONS = [
@@ -29,25 +29,48 @@ const CATEGORY_OPTIONS = [
 
 // ── Inline repayment plan ─────────────────────────────────────────────────────
 
-const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toast> }> = ({ loanId, toast }) => {
+const RepaymentPlanInline: React.FC<{ loan: Loan; onPayment: () => Promise<void>; toast: React.RefObject<Toast> }> = ({ loan, onPayment, toast }) => {
   const [plan, setPlan] = useState<RepaymentInstalment[]>([]);
+  const [paymentAccounts, setPaymentAccounts] = useState<BankAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const selectedAccountIdRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [payingMonth, setPayingMonth] = useState<number | null>(null);
 
+  const selectAccount = (accountId: number | null) => {
+    selectedAccountIdRef.current = accountId;
+    setSelectedAccountId(accountId);
+  };
+
   const loadPlan = useCallback(async () => {
     setLoading(true);
-    try { setPlan(await getRepaymentPlan(loanId)); }
+    try {
+      const [planResult, accountsResult] = await Promise.all([
+        getRepaymentPlan(loan.id),
+        getAccountsByClient(loan.clientId),
+      ]);
+      const activeAccounts = accountsResult.filter(account => account.status === 'ACTIVE');
+      setPlan(planResult);
+      setPaymentAccounts(activeAccounts);
+      const nextAccountId = selectedAccountIdRef.current
+        && activeAccounts.some(account => account.id === selectedAccountIdRef.current)
+          ? selectedAccountIdRef.current
+          : activeAccounts[0]?.id ?? null;
+      selectAccount(nextAccountId);
+    }
     catch (e: any) { toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message }); }
     finally { setLoading(false); }
-  }, [loanId, toast]);
+  }, [loan.id, loan.clientId, toast]);
 
   useEffect(() => { loadPlan(); }, [loadPlan]);
 
   const handlePay = async (inst: RepaymentInstalment) => {
+    const accountId = selectedAccountIdRef.current;
+    if (accountId === null) return;
     setPayingMonth(inst.monthNumber);
     try {
-      await payInstalment(loanId, inst.monthNumber);
-      await loadPlan();
+      await payInstalment(loan.id, inst.monthNumber, accountId);
+      await Promise.all([loadPlan(), onPayment()]);
       toast.current?.show({ severity: 'success', summary: 'Paid', detail: `Month ${inst.monthNumber} marked as paid.` });
     } catch (e: any) {
       toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
@@ -57,7 +80,16 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
   const paid = plan.filter(i => i.paid).length;
   const pct  = plan.length > 0 ? Math.round((paid / plan.length) * 100) : 0;
   const fmt  = (v: number) => `BGN ${v.toFixed(2)}`;
-  const nextPayableMonth = plan.find(i => !i.paid)?.monthNumber ?? null;
+  const nextPayableInstalment = plan.find(i => !i.paid) ?? null;
+  const nextPayableMonth = nextPayableInstalment?.monthNumber ?? null;
+  const selectedAccount = paymentAccounts.find(account => account.id === selectedAccountId) ?? null;
+  const missingAmount = selectedAccount && nextPayableInstalment
+    ? Math.max(0, nextPayableInstalment.totalPayment - selectedAccount.balance)
+    : 0;
+  const accountOptions = paymentAccounts.map(account => ({
+    label: `${account.iban} - ${fmt(account.balance)}`,
+    value: account.id,
+  }));
 
   if (loading) return <ProgressBar mode="indeterminate" style={{ height: 3 }} />;
 
@@ -68,6 +100,19 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
         <ProgressBar value={pct} style={{ flex: 1, height: 8 }} />
         <span className="lp-plan-bar-pct">{pct}%</span>
       </div>
+      <Dropdown
+        value={selectedAccountId}
+        options={accountOptions}
+        onChange={(e) => selectAccount(e.value === null ? null : Number(e.value))}
+        placeholder="Pay from account"
+        style={{ minWidth: 320, marginBottom: 12 }}
+      />
+      {selectedAccount && nextPayableInstalment && (
+        <small className={missingAmount > 0 ? 'lp-pay-hint lp-pay-hint--warn' : 'lp-pay-hint'}>
+          Available {fmt(selectedAccount.balance)} · Next payment {fmt(nextPayableInstalment.totalPayment)}
+          {missingAmount > 0 ? ` · Missing ${fmt(missingAmount)}` : ''}
+        </small>
+      )}
       <DataTable value={plan} size="small" scrollable scrollHeight="360px" stripedRows
         rowClassName={(r: RepaymentInstalment) => ({ 'lp-row-paid': r.paid })}>
         <Column field="monthNumber" header="Month" style={{ width: 70 }} />
@@ -85,7 +130,7 @@ const RepaymentPlanInline: React.FC<{ loanId: number; toast: React.RefObject<Toa
             const canPay = r.monthNumber === nextPayableMonth;
             return r.paid ? null : (
               <Button label="Pay" icon="pi pi-check-circle" size="small" className="bs-btn-navy"
-                loading={payingMonth === r.monthNumber} disabled={!canPay || payingMonth !== null}
+                loading={payingMonth === r.monthNumber} disabled={!canPay || selectedAccountId === null || payingMonth !== null}
                 onClick={() => handlePay(r)} />
             );
           }}
@@ -446,7 +491,9 @@ const LoansPage: React.FC = () => {
             </div>
             <DataTable value={loans} loading={searching}
               expandedRows={expandedRows} onRowToggle={e => setExpandedRows(e.data)}
-              rowExpansionTemplate={(r: Loan) => <RepaymentPlanInline loanId={r.id} toast={toast} />}
+              rowExpansionTemplate={(r: Loan) => <RepaymentPlanInline loan={r}
+                onPayment={async () => { if (searchId !== null) await loadLoans(searchId); }}
+                toast={toast} />}
               dataKey="id" stripedRows paginator rows={10} emptyMessage="No loans found.">
               <Column expander style={{ width: 44 }} />
               <Column field="id" header="ID" style={{ width: 70 }} sortable body={(r: Loan) => <span className="cp-muted">#{r.id}</span>} />

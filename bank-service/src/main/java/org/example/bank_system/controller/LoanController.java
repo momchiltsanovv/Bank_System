@@ -3,6 +3,7 @@ package org.example.bank_system.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.bank_system.dto.request.GrantLoanRequest;
+import org.example.bank_system.dto.request.PayInstalmentRequest;
 import org.example.bank_system.dto.request.UpdateLoanTypeRequest;
 import org.example.bank_system.dto.response.LoanResponse;
 import org.example.bank_system.dto.response.LoanTypeResponse;
@@ -44,8 +45,9 @@ public class LoanController {
 
     @PatchMapping("/{loanId}/instalments/{monthNumber}/pay")
     public RepaymentInstalmentResponse payInstalment(@PathVariable("loanId") Long loanId,
-                                                     @PathVariable("monthNumber") Integer monthNumber) {
-        return loanService.payInstalment(loanId, monthNumber);
+                                                     @PathVariable("monthNumber") Integer monthNumber,
+                                                     @Valid @RequestBody PayInstalmentRequest req) {
+        return loanService.payInstalment(loanId, monthNumber, req.accountId());
     }
 
     @GetMapping("/{id}/status")

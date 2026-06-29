@@ -12,6 +12,7 @@ import org.example.bank_system.exception.ResourceNotFoundException;
 import org.example.bank_system.repository.LoanRepository;
 import org.example.bank_system.repository.LoanTypeRepository;
 import org.example.bank_system.repository.RepaymentInstalmentRepository;
+import org.example.bank_system.repository.BankAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class LoanService {
     private final LoanRepository loanRepo;
     private final LoanTypeRepository loanTypeRepo;
     private final RepaymentInstalmentRepository instalmentRepo;
+    private final BankAccountRepository accountRepo;
     private final ClientService clientService;
 
     @Transactional
@@ -72,7 +74,7 @@ public class LoanService {
     }
 
     @Transactional
-    public RepaymentInstalmentResponse payInstalment(Long loanId, Integer monthNumber) {
+    public RepaymentInstalmentResponse payInstalment(Long loanId, Integer monthNumber, Long accountId) {
         RepaymentInstalment instalment = instalmentRepo.findByLoanIdAndMonthNumber(loanId, monthNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Instalment not found for loan " + loanId + " month " + monthNumber));
@@ -82,7 +84,26 @@ public class LoanService {
         if (instalmentRepo.existsByLoanIdAndMonthNumberLessThanAndPaidFalse(loanId, monthNumber)) {
             throw new BusinessRuleException("Previous instalments must be paid before month " + monthNumber);
         }
+        BankAccount account = accountRepo.findLockedById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + accountId));
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new BusinessRuleException("Cannot pay from a closed account");
+        }
+        Long loanClientId = instalment.getLoan().getClient().getId();
+        Long accountClientId = account.getOwner().getId();
+        if (!accountClientId.equals(loanClientId)) {
+            throw new BusinessRuleException("Account does not belong to the loan client");
+        }
+        if (account.getBalance().compareTo(instalment.getTotalPayment()) < 0) {
+            BigDecimal missingAmount = instalment.getTotalPayment().subtract(account.getBalance());
+            throw new BusinessRuleException("Insufficient account balance for instalment payment. Account "
+                    + account.getIban() + " has BGN " + account.getBalance()
+                    + ", but instalment " + monthNumber + " requires BGN " + instalment.getTotalPayment()
+                    + ". Missing BGN " + missingAmount);
+        }
+        account.setBalance(account.getBalance().subtract(instalment.getTotalPayment()));
         instalment.setPaid(true);
+        accountRepo.save(account);
         return toInstalmentResponse(instalmentRepo.save(instalment));
     }
 

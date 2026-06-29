@@ -10,6 +10,7 @@ import { Toast } from 'primereact/toast';
 import { Dialog } from 'primereact/dialog';
 import { ProgressBar } from 'primereact/progressbar';
 import { Divider } from 'primereact/divider';
+import { Dropdown } from 'primereact/dropdown';
 import {
   createIndividualClient, createCorporateClient,
   getIndividualClients, getCorporateClients,
@@ -24,27 +25,57 @@ import './ClientsPage.css';
 // ── Repayment Plan Dialog ────────────────────────────────────────────────────
 
 const RepaymentPlanDialog: React.FC<{
-  loanId: number | null; onHide: () => void; toast: React.RefObject<Toast>;
-}> = ({ loanId, onHide, toast }) => {
+  loanId: number | null; clientId: number; onHide: () => void; onPayment: () => Promise<void>; toast: React.RefObject<Toast>;
+}> = ({ loanId, clientId, onHide, onPayment, toast }) => {
   const [plan, setPlan] = useState<RepaymentInstalment[]>([]);
+  const [paymentAccounts, setPaymentAccounts] = useState<BankAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const selectedAccountIdRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [payingMonth, setPayingMonth] = useState<number | null>(null);
+
+  const selectAccount = (accountId: number | null) => {
+    selectedAccountIdRef.current = accountId;
+    setSelectedAccountId(accountId);
+  };
 
   useEffect(() => {
     if (loanId === null) return;
     setLoading(true);
-    getRepaymentPlan(loanId)
-      .then(setPlan)
+    Promise.all([getRepaymentPlan(loanId), getAccountsByClient(clientId)])
+      .then(([planResult, accountsResult]) => {
+        const activeAccounts = accountsResult.filter(account => account.status === 'ACTIVE');
+        setPlan(planResult);
+        setPaymentAccounts(activeAccounts);
+        const nextAccountId = selectedAccountIdRef.current
+          && activeAccounts.some(account => account.id === selectedAccountIdRef.current)
+            ? selectedAccountIdRef.current
+            : activeAccounts[0]?.id ?? null;
+        selectAccount(nextAccountId);
+      })
       .catch((e) => toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message }))
       .finally(() => setLoading(false));
-  }, [loanId, toast]);
+  }, [loanId, clientId, toast]);
 
   const handlePay = async (inst: RepaymentInstalment) => {
-    if (!loanId) return;
+    const accountId = selectedAccountIdRef.current;
+    if (!loanId || accountId === null) return;
     setPayingMonth(inst.monthNumber);
     try {
-      await payInstalment(loanId, inst.monthNumber);
-      setPlan(await getRepaymentPlan(loanId));
+      await payInstalment(loanId, inst.monthNumber, accountId);
+      const [nextPlan, nextAccounts] = await Promise.all([
+        getRepaymentPlan(loanId),
+        getAccountsByClient(clientId),
+        onPayment(),
+      ]);
+      const activeAccounts = nextAccounts.filter(account => account.status === 'ACTIVE');
+      setPlan(nextPlan);
+      setPaymentAccounts(activeAccounts);
+      const nextAccountId = selectedAccountIdRef.current
+        && activeAccounts.some(account => account.id === selectedAccountIdRef.current)
+          ? selectedAccountIdRef.current
+          : activeAccounts[0]?.id ?? null;
+      selectAccount(nextAccountId);
       toast.current?.show({ severity: 'success', summary: 'Paid', detail: `Month ${inst.monthNumber} marked as paid.` });
     } catch (e: any) {
       toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message });
@@ -54,7 +85,16 @@ const RepaymentPlanDialog: React.FC<{
   const paid = plan.filter(i => i.paid).length;
   const pct  = plan.length > 0 ? Math.round((paid / plan.length) * 100) : 0;
   const fmt  = (v: number) => `BGN ${v.toFixed(2)}`;
-  const nextPayableMonth = plan.find(i => !i.paid)?.monthNumber ?? null;
+  const nextPayableInstalment = plan.find(i => !i.paid) ?? null;
+  const nextPayableMonth = nextPayableInstalment?.monthNumber ?? null;
+  const selectedAccount = paymentAccounts.find(account => account.id === selectedAccountId) ?? null;
+  const missingAmount = selectedAccount && nextPayableInstalment
+    ? Math.max(0, nextPayableInstalment.totalPayment - selectedAccount.balance)
+    : 0;
+  const accountOptions = paymentAccounts.map(account => ({
+    label: `${account.iban} - ${fmt(account.balance)}`,
+    value: account.id,
+  }));
 
   return (
     <Dialog
@@ -76,6 +116,21 @@ const RepaymentPlanDialog: React.FC<{
             <ProgressBar value={pct} style={{ height: 10 }} />
           </div>
         </div>
+        <div className="cp-plan-payment-row">
+          <Dropdown
+            value={selectedAccountId}
+            options={accountOptions}
+            onChange={(e) => selectAccount(e.value === null ? null : Number(e.value))}
+            placeholder="Pay from account"
+            style={{ minWidth: 320 }}
+          />
+          {selectedAccount && nextPayableInstalment && (
+            <small className={missingAmount > 0 ? 'cp-pay-hint cp-pay-hint--warn' : 'cp-pay-hint'}>
+              Available {fmt(selectedAccount.balance)} · Next payment {fmt(nextPayableInstalment.totalPayment)}
+              {missingAmount > 0 ? ` · Missing ${fmt(missingAmount)}` : ''}
+            </small>
+          )}
+        </div>
         <DataTable value={plan} size="small" scrollable scrollHeight="420px" stripedRows
           rowClassName={(r: RepaymentInstalment) => ({ 'cp-row-paid': r.paid })}>
           <Column field="monthNumber" header="Month" style={{ width: 75 }} />
@@ -94,7 +149,7 @@ const RepaymentPlanDialog: React.FC<{
               return r.paid ? null : (
                 <Button label="Pay" icon="pi pi-check-circle" size="small"
                   className="bs-btn-navy" loading={payingMonth === r.monthNumber}
-                  disabled={!canPay || payingMonth !== null}
+                  disabled={!canPay || selectedAccountId === null || payingMonth !== null}
                   onClick={() => handlePay(r)} />
               );
             }}
@@ -180,7 +235,9 @@ const ClientDetailPanel: React.FC<{ clientId: number; toast: React.RefObject<Toa
         </DataTable>
       </div>
 
-      <RepaymentPlanDialog loanId={planLoanId} onHide={() => setPlanLoanId(null)} toast={toast} />
+      <RepaymentPlanDialog loanId={planLoanId} clientId={clientId}
+        onHide={() => setPlanLoanId(null)} onPayment={async () => { await loadAcc(); await loadLoans(); }}
+        toast={toast} />
     </div>
   );
 };

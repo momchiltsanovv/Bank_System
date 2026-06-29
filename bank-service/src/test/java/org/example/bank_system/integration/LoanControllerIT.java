@@ -2,11 +2,14 @@ package org.example.bank_system.integration;
 
 import com.jayway.jsonpath.JsonPath;
 import org.example.bank_system.entity.LoanCategory;
+import org.example.bank_system.repository.BankAccountRepository;
 import org.example.bank_system.repository.LoanTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+
+import java.math.BigDecimal;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -15,9 +18,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LoanControllerIT extends BaseIT {
 
     @Autowired private LoanTypeRepository loanTypeRepo;
+    @Autowired private BankAccountRepository accountRepo;
 
     private long clientId;
     private long consumerTypeId;
+    private long accountId;
 
     @BeforeEach
     void setup() throws Exception {
@@ -28,6 +33,7 @@ class LoanControllerIT extends BaseIT {
                                 """))
                 .andReturn().getResponse().getContentAsString();
         clientId = ((Number) JsonPath.read(resp, "$.id")).longValue();
+        accountId = fundDefaultAccount(clientId, new BigDecimal("50000.00"));
 
         consumerTypeId = loanTypeRepo.findByCategory(LoanCategory.CONSUMER).orElseThrow().getId();
     }
@@ -128,19 +134,23 @@ class LoanControllerIT extends BaseIT {
     void payInstalment_returns200AndMarkedPaid() throws Exception {
         long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
 
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay"))
+        mvc.perform(payInstalment(loanId, 1, accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.monthNumber").value(1))
                 .andExpect(jsonPath("$.paid").value(true));
+
+        mvc.perform(get("/api/accounts/" + accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balance").value(49125.49));
     }
 
     @Test
     void payInstalment_alreadyPaid_returns422() throws Exception {
         long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
 
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay"))
+        mvc.perform(payInstalment(loanId, 1, accountId))
                 .andExpect(status().isOk());
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay"))
+        mvc.perform(payInstalment(loanId, 1, accountId))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail", containsString("already paid")));
     }
@@ -149,9 +159,67 @@ class LoanControllerIT extends BaseIT {
     void payInstalment_skippingPreviousUnpaidInstalments_returns422() throws Exception {
         long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
 
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/2/pay"))
+        mvc.perform(payInstalment(loanId, 2, accountId))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail", containsString("Previous instalments")));
+    }
+
+    @Test
+    void payInstalment_withInsufficientBalance_returns422() throws Exception {
+        long lowBalanceAccountId = fundDefaultAccount(clientId, new BigDecimal("1.00"));
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(payInstalment(loanId, 1, lowBalanceAccountId))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail", containsString("Insufficient")));
+    }
+
+    @Test
+    void payInstalment_withAnotherClientsAccount_returns422() throws Exception {
+        long otherClientId = createIndividual("Other", "Client", "2234567890");
+        long otherAccountId = fundDefaultAccount(otherClientId, new BigDecimal("50000.00"));
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(payInstalment(loanId, 1, otherAccountId))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail", containsString("does not belong")));
+    }
+
+    @Test
+    void payInstalment_withClosedAccount_returns422() throws Exception {
+        long closedAccountId = fundDefaultAccount(clientId, new BigDecimal("50000.00"));
+        var account = accountRepo.findById(closedAccountId).orElseThrow();
+        account.setStatus(org.example.bank_system.entity.AccountStatus.CLOSED);
+        accountRepo.save(account);
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(payInstalment(loanId, 1, closedAccountId))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail", containsString("closed account")));
+    }
+
+    @Test
+    void payInstalment_withoutAccountId_returns400() throws Exception {
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("Validation failed")));
+    }
+
+    @Test
+    void payInstalment_withInvalidAccountId_returns400() throws Exception {
+        long loanId = grantLoan(clientId, "CONSUMER", 10000, 12);
+
+        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"accountId":0}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("Validation failed")));
     }
 
     @Test
@@ -164,8 +232,8 @@ class LoanControllerIT extends BaseIT {
                 .andExpect(jsonPath("$.totalInstalments").value(12))
                 .andExpect(jsonPath("$.fullyPaid").value(false));
 
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/1/pay"));
-        mvc.perform(patch("/api/loans/" + loanId + "/instalments/2/pay"));
+        mvc.perform(payInstalment(loanId, 1, accountId));
+        mvc.perform(payInstalment(loanId, 2, accountId));
 
         mvc.perform(get("/api/loans/" + loanId + "/status"))
                 .andExpect(status().isOk())
@@ -178,7 +246,7 @@ class LoanControllerIT extends BaseIT {
         long loanId = grantLoan(clientId, "CONSUMER", 10000, 3);
 
         for (int month = 1; month <= 3; month++) {
-            mvc.perform(patch("/api/loans/" + loanId + "/instalments/" + month + "/pay"))
+            mvc.perform(payInstalment(loanId, month, accountId))
                     .andExpect(status().isOk());
         }
 
@@ -253,5 +321,31 @@ class LoanControllerIT extends BaseIT {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return ((Number) JsonPath.read(resp, "$.id")).longValue();
+    }
+
+    private long createIndividual(String firstName, String lastName, String egn) throws Exception {
+        String resp = mvc.perform(post("/api/clients/individual")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"firstName":"%s","lastName":"%s","egn":"%s"}
+                                """.formatted(firstName, lastName, egn)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return ((Number) JsonPath.read(resp, "$.id")).longValue();
+    }
+
+    private long fundDefaultAccount(long clientId, BigDecimal balance) {
+        var account = accountRepo.findByOwnerId(clientId).get(0);
+        account.setBalance(balance);
+        return accountRepo.save(account).getId();
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder payInstalment(
+            long loanId, int monthNumber, long accountId) {
+        return patch("/api/loans/" + loanId + "/instalments/" + monthNumber + "/pay")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"accountId":%d}
+                        """.formatted(accountId));
     }
 }

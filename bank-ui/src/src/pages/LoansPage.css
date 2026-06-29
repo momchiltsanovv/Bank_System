@@ -192,6 +192,16 @@
 .lp-plan-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .lp-plan-bar-label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; min-width: 80px; }
 .lp-plan-bar-pct { font-size: 0.8rem; font-weight: 700; color: var(--navy); min-width: 36px; text-align: right; }
+.lp-pay-hint {
+  display: block;
+  margin: -4px 0 12px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.lp-pay-hint--warn {
+  color: #f97316;
+}
 .lp-row-paid td { background: rgba(16,185,129,0.12) !important; color: #6ee7b7 !important; }
 
 /* Progress cell in loans table */
